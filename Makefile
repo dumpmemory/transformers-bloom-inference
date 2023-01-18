@@ -1,6 +1,4 @@
 gen-proto:
-	pip install grpcio-tools==1.50.0 --no-cache-dir
-
 	mkdir -p inference_server/model_handler/grpc_utils/pb
 
 	python -m grpc_tools.protoc -Iinference_server/model_handler/grpc_utils/proto --python_out=inference_server/model_handler/grpc_utils/pb --grpc_python_out=inference_server/model_handler/grpc_utils/pb inference_server/model_handler/grpc_utils/proto/generation.proto

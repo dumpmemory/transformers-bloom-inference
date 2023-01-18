@@ -1,10 +1,4 @@
-FROM nvidia/cuda:11.6.0-devel-ubi8 as cuda
-
-ENV PORT=5000
-
-WORKDIR /src
-
-FROM cuda as conda
+FROM nvidia/cuda:11.6.1-runtime-ubi8 as base
 
 # taken form pytorch's dockerfile
 RUN curl -L -o ./miniconda.sh -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
@@ -21,7 +15,14 @@ RUN conda create -n inference python=${PYTHON_VERSION} pip -y
 # change shell to activate env
 SHELL ["conda", "run", "-n", "inference", "/bin/bash", "-c"]
 
-FROM conda as conda_env
+FROM base as conda
+
+# change shell to activate env
+
+# update conda
+RUN conda update -n base -c defaults conda -y
+# cmake
+RUN conda install -c anaconda cmake -y
 
 # update conda
 RUN conda update -n base -c defaults conda -y
@@ -29,8 +30,7 @@ RUN conda update -n base -c defaults conda -y
 # necessary stuff
 RUN pip install torch==1.12.1+cu116 --extra-index-url https://download.pytorch.org/whl/cu116 \
     transformers \
-    deepspeed==0.7.5 \
-    deepspeed-mii==0.0.2 \
+    deepspeed==0.7.7 \
     accelerate \
     gunicorn \
     flask \
@@ -40,28 +40,25 @@ RUN pip install torch==1.12.1+cu116 --extra-index-url https://download.pytorch.o
 	grpcio-tools==1.50.0 \
     --no-cache-dir
 
-# copy the code
-COPY inference_server inference_server
-COPY Makefile Makefile
-COPY LICENSE LICENSE
-
-# install grpc and compile protos
-RUN make gen-proto
-
 # clean conda env
 RUN conda clean -ya
 
-EXPOSE ${PORT}
-
 # change this as you like 🤗
-ENV TRANSFORMERS_CACHE=/transformers_cache/ \
-    HUGGINGFACE_HUB_CACHE=${TRANSFORMERS_CACHE} \
-    HOME=/homedir
+ENV TRANSFORMERS_CACHE=/cos/HF_cache \
+    HUGGINGFACE_HUB_CACHE=${TRANSFORMERS_CACHE}
 
-RUN mkdir ${HOME} && chmod g+wx ${HOME} && \
-    mkdir tmp && chmod -R g+w tmp
+FROM conda as app
 
-# for debugging
-# RUN chmod -R g+w inference_server && chmod g+w Makefile
+WORKDIR /src
+RUN chmod -R g+w /src
 
-CMD make bloom-176b
+ENV PORT=5000 \
+    UI_PORT=5001
+EXPOSE ${PORT}
+EXPOSE ${UI_PORT}
+
+CMD git clone https://github.com/huggingface/transformers-bloom-inference.git && \
+    cd transformers-bloom-inference && \
+    # install grpc and compile protos
+    make gen-proto && \
+    make bloom-560m

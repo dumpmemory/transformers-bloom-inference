@@ -1,6 +1,6 @@
 import argparse
 
-from .models import get_downloaded_model_path
+from inference_server.models import get_hf_model_class
 
 
 def get_args() -> argparse.Namespace:
@@ -12,6 +12,12 @@ def get_args() -> argparse.Namespace:
         required=True,
         help="model to use",
     )
+    parser.add_argument(
+        "--model_class",
+        type=str,
+        required=True,
+        help="model class to use",
+    )
 
     args = parser.parse_args()
 
@@ -20,7 +26,7 @@ def get_args() -> argparse.Namespace:
 
 def main() -> None:
     args = get_args()
-    get_downloaded_model_path(args.model_name)
+    get_hf_model_class(args.model_class).from_pretrained(args.model_name)
 
 
 if __name__ == "__main__":
